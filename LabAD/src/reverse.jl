@@ -25,10 +25,34 @@ function CGE.pullback!(::typeof(-), f::Node, x::Node, y::Node)
     y.metadata.derivative -= f.metadata.derivative
 end
 
+function CGE.pullback!(::typeof(-), f::Node, x::Node)
+    x.metadata.derivative -= f.metadata.derivative
+end
+
 function CGE.pullback!(::typeof(*), f::Node, x::Node, y::Node)
     x.metadata.derivative += f.metadata.derivative * y.value
     y.metadata.derivative += f.metadata.derivative * x.value
 end
+
+function CGE.pullback!(::typeof(/), f::Node, x::Node, y::Node)
+    x.metadata.derivative += f.metadata.derivative * (1 / y.value)
+    y.metadata.derivative += f.metadata.derivative * x.value * (y.value - y.metadata.derivative) / (y.value * y.value)
+end
+
+function CGE.pullback!(::typeof(^), f::Node, x::Node, n::Node)
+    x.metadata.derivative += f.metadata.derivative * x.metadata.derivative * n.value * x.value ^(n.value - 1)
+end
+
+function CGE.pullback!(::typeof(tanh), f::Node, x::Node)
+    x.metadata.derivative += f.metadata.derivative * (1 - tanh(x)^2) * x.metadata.derivative
+end
+
+# fixme
+#function CGE.pullback!(::typeof(relu), f::Node, x::Node)
+#    if x > 0
+#        x.metadata.derivative += f.metadata.derivative
+#    end
+#end
 
 function CGE.pullback!(op, f::Node, args...)
     error("$op is not implemented yet, this is the purpose of the practice session!")
