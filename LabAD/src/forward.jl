@@ -25,14 +25,20 @@ Base.:/(x::Dual, y::Dual) = Dual(x.value / y.value, (x.derivative * y.value - x.
 Base.:/(α::Number, x::Dual) = Dual(α / x.value, -α * x.derivative / x.value^2)
 Base.:^(x::Dual, n::Integer) = Base.power_by_squaring(x, n)
 # Specific functions and operations
-Base.tanh(::Dual) = Dual(tanh(x.value), (1 - tanh(x.value)^2) * x.derivative)
+Base.tanh(x::Dual) = Dual(tanh(x.value), (1 - tanh(x.value)^2) * x.derivative)
 Base.exp(x::Dual) = Dual(exp(x.value), x.derivative * exp(x.value))
 Base.log(x::Dual) = Dual(log(x.value), x.derivative / x.value)
 
 Base.show(io::IO, d::Dual) = print(io, "Dual(", d.value, ", ", d.derivative, ")")
 
+max(x::Dual, y::Real) = if (x.value > y) x.value else y end
+max(x::Real, y::Dual) = if (x > y.value) x else y.value end
+
 Base.isless(x::Dual, y::Real) = x.value < y
+Base.isless(x::Real, y::Dual) = x < y.value
 Base.isless(x::Dual, y::Dual) = x.value < y.value
+
+relu(x::Dual) = Dual(if (x.value > 0) x.value else 0 end, if (x.value > 0) 1 else 0 end)
 
 function onehot(v, i)
     z = zero(similar(v, Float64))
