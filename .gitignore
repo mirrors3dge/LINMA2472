@@ -1,3 +1,9 @@
 .ipynb_checkpoints
 Manifest.toml
 cache
+
+# IDEs
+.vscode
+
+# misc
+.DS_Store

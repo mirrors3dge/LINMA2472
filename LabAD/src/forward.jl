@@ -31,15 +31,20 @@ Base.log(x::Dual) = Dual(log(x.value), x.derivative / x.value)
 
 Base.show(io::IO, d::Dual) = print(io, "Dual(", d.value, ", ", d.derivative, ")")
 
-Base.max(x::Dual, y::Real) = if (x.value > y) x.value else y end
-Base.max(x::Real, y::Dual) = if (x > y.value) x else y.value end
+Base.max(x::Dual, y::Real) =
+    if (x.value > y) x else Dual(y, 0) end
+Base.max(x::Real, y::Dual) =
+    if (x > y.value) Dual(x, 0) else y end
+Base.max(x::Dual, y::Dual) =
+    if (x > y) x else y end
 
 Base.isless(x::Dual, y::Real) = x.value < y
 Base.isless(x::Real, y::Dual) = x < y.value
 Base.isless(x::Dual, y::Dual) = x.value < y.value
 
 # fixme
-#Base.relu(x::Dual) = Dual(if (x.value > 0) x.value else 0 end, if (x.value > 0) 1 else 0 end)
+#Base.relu(x::Dual) =
+#    if (x.value > 0) x else Dual(0, 0) end
 
 function onehot(v, i)
     z = zero(similar(v, Float64))
