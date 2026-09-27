@@ -4,8 +4,9 @@ import ComputationGraphExplorer as CGE
 
 mutable struct ReverseData
     derivative::Float64
+    parents::Union{Nothing,Vector{Tuple{Any,Float64}}} # Any to avoid circular def with Node
 end
-CGE.metadata(::Type{ReverseData}, ::Float64) = ReverseData(0.0)
+CGE.metadata(::Type{ReverseData}, ::Float64) = ReverseData(0.0, nothing)
 CGE.metadata_rows(data::ReverseData) = ["r" => data.derivative]
 
 const Node = CGE.Node{Float64,ReverseData}
@@ -14,56 +15,27 @@ function CGE.seed_metadata!(data::ReverseData, is_output::Bool)
     data.derivative = is_output ? 1.0 : 0.0
 end
 
-function CGE.pullback!(::typeof(+), f::Node, args::Node...)
-    for arg in args
-        arg.metadata.derivative += f.metadata.derivative
+# ops impls
+local_jacobian(::typeof(+), args::Node...) = [(a, 1.0) for a in args]
+local_jacobian(::typeof(-), x::Node, y::Node) = [(x, 1.0), (y, -1.0)]
+local_jacobian(::typeof(-), x::Node) = [(x, -1.0)]
+local_jacobian(::typeof(*), x::Node, y::Node) = [(x, y.value), (y, x.value)]
+local_jacobian(::typeof(/), x::Node, y::Node) = [(x, 1 / y.value), (y, -x.value / y.value^2)]
+local_jacobian(::typeof(^), x::Node, n::Node) = [(x, n.value * x.value^(n.value - 1))]
+local_jacobian(::typeof(tanh), x::Node) = [(x, 1 - tanh(x.value)^2)]
+local_jacobian(::typeof(exp), x::Node) = [(x, exp(x.value))]
+local_jacobian(::typeof(log), x::Node) = [(x, 1 / x.value)]
+
+function CGE.pullback!(op, f::Node, args::Node...)
+    if f.metadata.parents === nothing
+        f.metadata.parents = local_jacobian(op, args...)
     end
-end
-
-function CGE.pullback!(::typeof(-), f::Node, x::Node, y::Node)
-    x.metadata.derivative += f.metadata.derivative
-    y.metadata.derivative -= f.metadata.derivative
-end
-
-function CGE.pullback!(::typeof(-), f::Node, x::Node)
-    x.metadata.derivative -= f.metadata.derivative
-end
-
-function CGE.pullback!(::typeof(*), f::Node, x::Node, y::Node)
-    x.metadata.derivative += f.metadata.derivative * y.value
-    y.metadata.derivative += f.metadata.derivative * x.value
-end
-
-function CGE.pullback!(::typeof(/), f::Node, x::Node, y::Node)
-    x.metadata.derivative += f.metadata.derivative / y.value
-    y.metadata.derivative -= f.metadata.derivative * x.value / (y.value * y.value)
-end
-
-function CGE.pullback!(::typeof(^), f::Node, x::Node, n::Node)
-    x.metadata.derivative += f.metadata.derivative * n.value * x.value ^ (n.value - 1)
-end
-
-function CGE.pullback!(::typeof(tanh), f::Node, x::Node)
-    x.metadata.derivative += f.metadata.derivative * (1 - tanh(x.value)^2)
-end
-
-function CGE.pullback!(::typeof(exp), f::Node, x::Node)
-    x.metadata.derivative += f.metadata.derivative * exp(x.value)
-end
-
-function CGE.pullback!(::typeof(log), f::Node, x::Node)
-    x.metadata.derivative += f.metadata.derivative / x.value
-end
-
-# fixme
-#function CGE.pullback!(::typeof(relu), f::Node, x::Node)
-#    if (x.value > 0)
-#        x.metadata.derivative += f.metadata.derivative
-#    end
-#end
-
-function CGE.pullback!(op, f::Node, args...)
-    error("$op is not implemented yet, this is the purpose of the practice session!")
+    if iszero(f.metadata.derivative)
+        return # then its no-op anyway
+    end
+    for (parent, coef) in f.metadata.parents
+        parent.metadata.derivative += f.metadata.derivative * coef
+    end
 end
 
 function gradient!(f, g, x)
