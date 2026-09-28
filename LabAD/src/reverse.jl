@@ -6,7 +6,9 @@ mutable struct ReverseData
     derivative::Float64
     parents::Union{Nothing,Vector{Tuple{Any,Float64}}} # Any to avoid circular def with Node
 end
-CGE.metadata(::Type{ReverseData}, ::Float64) = ReverseData(0.0, nothing)
+ReverseData(derivative) = ReverseData(derivative, nothing)
+
+CGE.metadata(::Type{ReverseData}, ::Float64) = ReverseData(0.0)
 CGE.metadata_rows(data::ReverseData) = ["r" => data.derivative]
 
 const Node = CGE.Node{Float64,ReverseData}
@@ -29,9 +31,6 @@ local_jacobian(::typeof(log), x::Node) = [(x, 1 / x.value)]
 function CGE.pullback!(op, f::Node, args::Node...)
     if f.metadata.parents === nothing
         f.metadata.parents = local_jacobian(op, args...)
-    end
-    if iszero(f.metadata.derivative)
-        return # then its no-op anyway
     end
     for (parent, coef) in f.metadata.parents
         parent.metadata.derivative += f.metadata.derivative * coef
