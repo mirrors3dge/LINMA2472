@@ -8,7 +8,7 @@
 function quad(x)
     I = eachindex(x)
     y = x - I
-    return sum(I .* y.^2)
+    return sum(I .* y .^ 2)
 end
 
 using Revise
@@ -22,11 +22,11 @@ xs = [copy(x)]
 Forward.gradient(quad, x)
 # We see that the gradient is not zero, let's train 10 times with 10 steps each
 for _ in 1:10
-    losses = train!(Forward.gradient!, quad, x, num_iters = 1)
+    losses = train!(Forward.gradient!, quad, x, num_iters=1)
     push!(xs, copy(x))
 end
 Forward.gradient(quad, x)
-scatter!(getindex.(xs, 1), getindex.(xs, 2), label = "")
+scatter!(getindex.(xs, 1), getindex.(xs, 2), label="")
 
 ########## Stretching ############
 
@@ -61,16 +61,16 @@ Forward.gradient(L, w)
 losses = train!(Forward.gradient!, L, w)
 
 using Plots
-plot(eachindex(losses), losses, label = "")
+plot(eachindex(losses), losses, label="")
 
 # We can see in the plot that we are far from converged.
 # Let's do 10 more gradient steps. We pass the `losses` as additional argument
 # so that the new losses are appended to the plot
 
 losses = train!(Forward.gradient!, L, w; losses)
-plot(eachindex(losses), log.(losses), label = "")
+plot(eachindex(losses), log.(losses), label="")
 
-# We can see that the linear model now does its best to 
+# We can see that the linear model now does its best to
 # differentiate each category.
 
 plot_moon(identity_activation, w, X, y)
@@ -101,7 +101,7 @@ losses = train!(Forward.gradient!, L, w)
 
 train!(Forward.gradient!, L, w; losses)
 
-plot(eachindex(losses), log.(losses), label = "")
+plot(eachindex(losses), log.(losses), label="")
 
 plot_moon(tanh_activation, w, X, y)
 
@@ -132,7 +132,7 @@ losses = train!(Forward.gradient!, L, w)
 
 train!(Forward.gradient!, L, w; losses)
 
-plot(eachindex(losses), log.(losses), label = "")
+plot(eachindex(losses), log.(losses), label="")
 
 plot_moon(relu_activation, w, X, y)
 
@@ -158,7 +158,7 @@ losses = train!(Forward.gradient!, L, w)
 
 train!(Forward.gradient!, L, w; losses)
 
-plot(eachindex(losses), log.(losses), label = "")
+plot(eachindex(losses), log.(losses), label="")
 
 plot_moon(relu_softmax, w, X, y)
 
@@ -170,3 +170,18 @@ plot_moon(relu_softmax, w, X, y)
 #         so you can start by implementing a Jacobian
 #         function and then combine it with the existing gradient
 #         function to get the hessian.
+
+x = Float32[1, 2, 3, 4]
+
+function my_fn(x)
+    x, y, z, k = x
+    return x * x * y + y * z + k
+end
+
+jac = Forward.jacobian(x -> [my_fn(x)], x)
+grad = Forward.gradient(my_fn, x)
+hess = Forward.hessian(my_fn, x)
+
+println(typeof(jac)," ", jac)
+println(typeof(grad)," " , grad)
+println(typeof(hess)," ", hess)
