@@ -4,6 +4,7 @@
 
 using Revise # This will allow the changes you make to LabAD to take effect even after executing `using LabAD`.`
 using LabAD
+import LabAD.Forward.hessian
 import ComputationGraphExplorer as CGE
 
 x = rand(2)
@@ -124,6 +125,8 @@ norm.(∇f .- ∇r)
 #         reverse for both the Jacobian and gradient is probably
 #         a bit ambitious but try using reverse of at least one of
 #         them. This is called doing *forward-over-reverse*.
+
+hessian(L, x)
 
 # ## Exercise 5:
 

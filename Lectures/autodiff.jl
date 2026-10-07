@@ -208,6 +208,13 @@ of each node ``v_i``, then accumulates the adjoints
 # ╔═╡ 1d56075c-e28d-46c9-9a0a-210079172388
 md"## Reverse mode in action"
 
+# ╔═╡ 19578219-c6dd-4322-a2f4-44088ef640af
+md"""
+```math
+f(x_1, x_2) = x_2 e^{x_1} \sqrt{x_1 + x_2 e^{x_2}}
+```
+"""
+
 # ╔═╡ 7f75e3f3-c4e2-402d-be7b-336a4f65042a
 md"""# Comparison
 
@@ -247,12 +254,21 @@ abs(Dual(0, 1))
 # ╔═╡ 9862c791-31e8-4d59-8610-a929d72ea9c3
 abs_bis(Dual(0, 1))
 
+# ╔═╡ 6bd5ea51-54c4-46ba-8eb3-6427225e5249
+md"## Issues with scalar AD"
+
 # ╔═╡ e121f72b-fe6d-491a-ab03-ef92154c61ca
 md"""
 # Neural network
 
 Two equivalent approaches, ``b_k`` is a **column** vector, ``S_i, X, W_i, Y`` are matrices.
 """
+
+# ╔═╡ 2c7e75ca-bd85-4cf7-b762-bb80afc9e465
+
+
+# ╔═╡ 142fc47a-5774-4a5c-a2ba-942524986e7c
+
 
 # ╔═╡ b92d17a9-8481-458a-bc0a-efb7333cbc6e
 hbox([md"""
@@ -289,7 +305,14 @@ md"## Evaluation"
 # ╔═╡ 29287c62-e892-448f-a9d5-12785ae4a02f
 md"""## Matrix multiplication (Vectorized way)
 
-Useful: ``\text{vec}(AXB) = (B^\top \otimes A) \text{vec}(X)``
+[Kronecker product properties:](https://en.wikipedia.org/wiki/Kronecker_product)
+```math
+\begin{align}
+\text{vec}(AXB) & = (B^\top \otimes A) \text{vec}(X) &
+(A \otimes B)^\top & = A^\top \otimes B^\top
+\end{align}
+```
+Deriving VJP and JVP for matrix product:
 ```math
 \begin{align}
 F(X) & = AX\\
@@ -387,7 +410,10 @@ function normalise(x)
 end
 
 # ╔═╡ 0bcadb3a-4880-4e6c-bccb-b09df8ad8fa3
+# ╠═╡ disabled = true
+#=╠═╡
 X = Float32.(normalise(wine.features))
+  ╠═╡ =#
 
 # ╔═╡ 2fcf25d2-fd51-4c13-b57c-86236aceead2
 y = Float32.(wine.targets .- 2)
@@ -634,6 +660,9 @@ let
 	)
 end
 
+# ╔═╡ a06be2d9-73c1-4f85-b2e7-18d3c5a90f47
+import ComputationGraphExplorer as CGE
+
 # ╔═╡ e8b1c40d-27a6-4f39-b95e-6d3a0f81c72b
 begin
 	"""
@@ -709,29 +738,36 @@ h_slider = @bind h Slider(10:1000, default = 16, show_value = true);
 md"`h` = $(h_slider)"
 
 # ╔═╡ b5c3e2ef-3d47-4f44-b968-d04734be2f16
+#=╠═╡
 W = [rand(Float32, h, size(X, 1)), rand(Float32, size(y, 1), h)]
+  ╠═╡ =#
 
 # ╔═╡ a580ef44-234a-4ed1-b007-920651415427
+#=╠═╡
 sum((W[2] * tanh.(W[1] * X) - y).^2) / size(y, 2)
+  ╠═╡ =#
 
 # ╔═╡ 87c6a5bc-82bf-44a5-b4d6-6d50285348c0
+#=╠═╡
 @time reverse_diff(W, X, y)
+  ╠═╡ =#
 
 # ╔═╡ 85303791-bdc4-468a-bc40-48ef2a186282
+#=╠═╡
 if CUDA.functional()
 	X_gpu = CUDA.CuArray(X)
 	y_gpu = CUDA.CuArray(y)
 	W_gpu = CUDA.CuArray.(W)
 	@time reverse_diff(W_gpu, X_gpu, y_gpu)
 end
+  ╠═╡ =#
 
 # ╔═╡ 9b4a78d8-e6da-41dd-b922-b35c895eee1a
+#=╠═╡
 if h < 200 # Forward Diff start being too slow for `h > 200`
 	@time forward_diff(W, X, y)
 end
-
-# ╔═╡ a06be2d9-73c1-4f85-b2e7-18d3c5a90f47
-import ComputationGraphExplorer as CGE
+  ╠═╡ =#
 
 # ╔═╡ b3c8d70e-9a41-4d26-85fb-6e02f19ca4d3
 begin
@@ -766,6 +802,19 @@ begin
 		x.metadata.derivative += node.metadata.derivative / (2 * node.value)
 	end
 end;
+
+# ╔═╡ ee3299e2-3367-4c68-a050-c26650a97c8c
+let
+	x = GraphNode.(rand(2))
+	y = GraphNode.(rand(2))
+	names = IdDict()
+	for i in eachindex(x)
+		names[x[i]] = "x[$i]"
+		names[y[i]] = "y[$i]"
+	end
+	graph = CGE.Graph(x' * y; names)
+	HTML(CGE.render_svg(graph, CGE.capture_frame(graph, "x' * y"), responsive = true))
+end
 
 # ╔═╡ c71e4f82-0d35-49ba-97c6-84a1bd50e739
 graph_example = let
@@ -814,7 +863,7 @@ end;
 @bind graph_step StepSlider(eachindex(graph_frames))
 
 # ╔═╡ e52c7a3b-8d19-4c60-a7f2-31b6ec9d5a08
-HTML(CGE.render_svg(graph_example, graph_frames[graph_step]))
+HTML(CGE.render_svg(graph_example, graph_frames[graph_step], responsive = true))
 
 # ╔═╡ cbfc0129-9361-4edb-a467-1456a1f3aeae
 begin
@@ -958,6 +1007,9 @@ For this JVP, we need to evaluate ``f`` twice. On the other hand, forward mode e
 Numerical differentiation may however need to increase its number of evaluations in order to improve its accuracy while forward is accurate (up to floating point rounding errors).
 """)
 
+# ╔═╡ 11eadcc1-68bf-4ca7-9603-ef46468b4779
+qa(md"Why don't we show the local Jacobian ``\partial J_k`` in the memory usage ?", md"For a scalar AD, it is best to compute the local Jacobian ``\partial J_k`` and ``s_k`` from ``s_{k-1}`` during the forward pass at the same time because part of the computation for one can be reused for the other one. For instance, if ``f_k(x) = sin(x)``, it is more efficient to compute ``sin(x)`` and ``cos(x)`` at the same time with the Julia function `sincos`. However, as we will see, for a vectorized AD, we usually don't compute a local Jacobian and just use ``s_{k-1}`` to do the backward propagation of ``r_k`` towards ``r_{k-1}``. This is why this picture, which is taken from the book which focuses on vectorized AD doesn't show a memory usage for the local Jacobian.")
+
 # ╔═╡ 74063eb5-be06-466a-a2f1-e266c35295ea
 qa(md"Is the function ``|x|`` is differentiable at ``x = 0`` ?.", md"No, if we approach from the left (that is, ``x < 0``, the function is ``-x``), then the derivative is ``-1``.
 If we approach from the right (that is, ``x > 0``, the function is ``x``), then the derivative is ``1``.
@@ -967,7 +1019,7 @@ There is no valid gradient!")
 qa(md"What about returning a convex combination of the derivative from the left and right ?", md"Any number between ``-1`` and ``1`` is a valid **subgradient**!
 Whereas the gradient is the normal to the **unique** tangent, the subgradient is an element of the **tangent cone**, depicted below. For convex functions, the notion of subgradient appropriately generalizes the notion of gradient for nonsmooth functions.
 
-Note that the notion of subgradient is not defined for nonconvex functions. So we may say that we compute the local subgradient of some local nonsmooth ``f_i`` but we cannot deduce from it that the resulting vector is a subgradient of ``f`` if ``f`` is nonconvex.")
+Note that the notion of subgradient is not defined for nonconvex functions. So instead we use [Clarke differential](https://en.wikipedia.org/wiki/Clarke_generalized_derivative) but this is out of the scope of this course.")
 
 # ╔═╡ c733ca7e-b57e-4218-9bd4-238ab5749143
 qa(md"How should we store the Jacobian in the forward pass to save it for the backward pass ?",
@@ -1226,7 +1278,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 CUDA = "~5.11.3"
-ComputationGraphExplorer = "~0.1.0"
+ComputationGraphExplorer = "~0.2.1"
 DataFrames = "~1.8.2"
 HypertextLiteral = "~1.0.0"
 MLDatasets = "0.7"
@@ -1240,9 +1292,9 @@ PlutoUI = "~0.7.83"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.13.0"
+julia_version = "1.13.1"
 manifest_format = "2.1"
-project_hash = "8dfcd3727ee220b59eb79e0954e515043c52de2c"
+project_hash = "d762c231a70364a1c37be9c12e984400d9df4e3e"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1386,10 +1438,10 @@ version = "0.4.4+1"
 
 [[deps.CUDA_Driver_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "TOML"]
-git-tree-sha1 = "2bbaa78dd79a27e354ac97c17dca290069f5c56f"
+git-tree-sha1 = "e1545697ad04e71fc9d2d95b8f5f54c1244fb607"
 registries = "General"
 uuid = "4ee394cb-3365-5eb0-8335-949819d2adfc"
-version = "13.3.4+0"
+version = "13.3.5+0"
 
 [[deps.CUDA_Runtime_Discovery]]
 deps = ["Libdl"]
@@ -1494,10 +1546,10 @@ version = "3.31.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "67e11ee83a43eb71ddc950302c53bf33f0690dfe"
+git-tree-sha1 = "61761f58648aa7217445f24f841839b78c712232"
 registries = "General"
 uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.12.1"
+version = "0.12.3"
 weakdeps = ["StyledStrings"]
 
     [deps.ColorTypes.extensions]
@@ -1517,11 +1569,11 @@ version = "0.11.0"
     SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [[deps.Colors]]
-deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
-git-tree-sha1 = "37ea44092930b1811e666c3bc38065d7d87fcc74"
+deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "Reexport"]
+git-tree-sha1 = "291665b547f137df070e4dd83e432b5fee8cc4a0"
 registries = "General"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.13.1"
+version = "0.13.2"
 
 [[deps.Compat]]
 deps = ["TOML", "UUIDs"]
@@ -1541,10 +1593,14 @@ version = "1.5.5+2"
 
 [[deps.ComputationGraphExplorer]]
 deps = ["LinearAlgebra", "Luxor", "Typstry"]
-git-tree-sha1 = "3aa9da4be241ebfdb5a478bb256b1f50d1840397"
+git-tree-sha1 = "09a7e6c3e4bc3f892ba04c08dda734ecd3353c3c"
 registries = "General"
 uuid = "c9fc7d07-15e8-4fd8-b152-23c2424d2de2"
-version = "0.1.0"
+version = "0.2.1"
+weakdeps = ["NNlib"]
+
+    [deps.ComputationGraphExplorer.extensions]
+    ComputationGraphExplorerNNlibExt = "NNlib"
 
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
@@ -1636,10 +1692,10 @@ version = "0.1.16"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
-git-tree-sha1 = "d36f682e590a83d63d1c7dbd287573764682d12a"
+git-tree-sha1 = "4e468f521e1f9f86891cb07186de5df90360a666"
 registries = "General"
 uuid = "460bff9d-24e4-43bc-9d9f-a8973cb893f4"
-version = "0.1.11"
+version = "0.1.12"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -1656,17 +1712,17 @@ version = "0.1.11"
 
 [[deps.FFMPEG]]
 deps = ["FFMPEG_jll"]
-git-tree-sha1 = "95ecf07c2eea562b5adbd0696af6db62c0f52560"
+git-tree-sha1 = "7bd13840b4148949e290748071bbe6826b3eabcd"
 registries = "General"
 uuid = "c87230d0-a227-11e9-1b43-d7ebe4e7570a"
-version = "0.4.5"
+version = "0.4.6"
 
 [[deps.FFMPEG_jll]]
 deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libva_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
-git-tree-sha1 = "7a58e45171b63ed4782f2d36fdee8713a469e6e0"
+git-tree-sha1 = "e3c081ec777297fb8fc433012d15a6eaf806b4d2"
 registries = "General"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
-version = "8.1.2+0"
+version = "9.0.1+0"
 
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
@@ -1819,10 +1875,10 @@ version = "1.3.16+0"
 
 [[deps.HDF5]]
 deps = ["Compat", "HDF5_jll", "Libdl", "MPIPreferences", "Mmap", "Preferences", "Printf", "Random", "Requires", "UUIDs"]
-git-tree-sha1 = "491ea627ac824619f34168e29a0427a9e00e3e40"
+git-tree-sha1 = "26e37af34e8ccb7a8358bd8de1619c7bcb526738"
 registries = "General"
 uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-version = "0.17.3"
+version = "0.17.4"
 
     [deps.HDF5.extensions]
     MPIExt = "MPI"
@@ -1832,10 +1888,10 @@ version = "0.17.3"
 
 [[deps.HDF5_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LibCURL_jll", "Libdl", "MPIABI_jll", "MPICH_jll", "MPIPreferences", "MPItrampoline_jll", "MicrosoftMPI_jll", "OpenMPI_jll", "OpenSSL_jll", "TOML", "Zlib_jll", "aws_c_s3_jll", "dlfcn_win32_jll", "libaec_jll", "mpif_jll"]
-git-tree-sha1 = "45337643a2d97262d5fe72ce1f13e8a662d13d62"
+git-tree-sha1 = "194d676302b9b6aa53ea1f98ae8607d5caa8de4f"
 registries = "General"
 uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
-version = "2.1.2+0"
+version = "2.2.2+0"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "PrecompileTools", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
@@ -1951,11 +2007,11 @@ uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
 [[deps.JLD2]]
-deps = ["ChunkCodecLibZlib", "ChunkCodecLibZstd", "FileIO", "MacroTools", "Mmap", "OrderedCollections", "PrecompileTools", "ScopedValues"]
-git-tree-sha1 = "877edc1d2f51adcef0bfacd19464a19e7cfddddb"
+deps = ["ChunkCodecCore", "ChunkCodecLibZlib", "ChunkCodecLibZstd", "FileIO", "MacroTools", "Mmap", "OrderedCollections", "PrecompileTools", "ScopedValues"]
+git-tree-sha1 = "9ce2e7c49ae4a7035b7d60db3a553b1f6c16875d"
 registries = "General"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.6.6"
+version = "0.6.7"
 
     [deps.JLD2.extensions]
     UnPackExt = "UnPack"
@@ -2004,10 +2060,10 @@ version = "1.12.0"
 
 [[deps.KernelAbstractions]]
 deps = ["Adapt", "Atomix", "InteractiveUtils", "MacroTools", "PrecompileTools", "Requires", "StaticArrays", "UUIDs"]
-git-tree-sha1 = "a5b87110fa95d711355af44832497745aa93fb52"
+git-tree-sha1 = "920671fc8e3be4daf278442bf0bd5cfb46ebac48"
 registries = "General"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.9.42"
+version = "0.9.43"
 
     [deps.KernelAbstractions.extensions]
     EnzymeExt = "EnzymeCore"
@@ -2035,10 +2091,10 @@ version = "4.2.0+0"
 
 [[deps.LLVM]]
 deps = ["CEnum", "LLVMExtra_jll", "Libdl", "PrecompileTools", "Preferences", "Printf", "Unicode"]
-git-tree-sha1 = "d4bfee24427f4f441bd9212a107e375c39663aab"
+git-tree-sha1 = "3bcfa5cd59aecfc0680d8b5b8ea38237b009f112"
 registries = "General"
 uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "9.13.1"
+version = "9.13.2"
 weakdeps = ["BFloat16s"]
 
     [deps.LLVM.extensions]
@@ -2123,7 +2179,7 @@ version = "1.9.1+0"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl", "OpenSSL_jll", "Zlib_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
-version = "1.11.103+0"
+version = "1.11.104+0"
 
 [[deps.LibTracyClient_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -2185,10 +2241,10 @@ version = "1.13.0"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "bba2d9aa057d8f126415de240573e86a8f39d2a1"
+git-tree-sha1 = "b85e2797b2409570e84c4de46238c0ed5f6476ae"
 registries = "General"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "1.0.1"
+version = "1.0.2"
 
     [deps.LogExpFunctions.extensions]
     LogExpFunctionsChainRulesCoreExt = "ChainRulesCore"
@@ -2269,17 +2325,17 @@ version = "0.4.13"
 
 [[deps.MPIABI_jll]]
 deps = ["Artifacts", "Hwloc_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "TOML"]
-git-tree-sha1 = "9be143b6045719e8fb019d2b3bc2aebad1184fef"
+git-tree-sha1 = "42e2cada9f35500b4d227106ce2b60e85d9f15bc"
 registries = "General"
 uuid = "b5ada748-db0f-5fc0-8972-9331c762740c"
-version = "0.1.5+0"
+version = "1.0.1+0"
 
 [[deps.MPICH_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Hwloc_jll", "JLLWrappers", "Libdl", "MPIPreferences", "TOML"]
-git-tree-sha1 = "07dbec8aab01696edc0151a401a6cdfe95b9b885"
+git-tree-sha1 = "bdbb39057d6897527a702983b5fd5184207d23a2"
 registries = "General"
 uuid = "7cb0a576-ebde-5e09-9194-50597f1243b4"
-version = "5.0.1+0"
+version = "5.0.2+0"
 
 [[deps.MPIPreferences]]
 deps = ["Libdl", "Preferences"]
@@ -2457,10 +2513,10 @@ version = "0.8.7+0"
 
 [[deps.OpenMPI_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Hwloc_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "TOML", "Zlib_jll"]
-git-tree-sha1 = "6d6c0ca4824268c1a7dca1f4721c535ac63d9074"
+git-tree-sha1 = "fb9be749680dd1283049ee17d96bd0ec611bc50f"
 registries = "General"
 uuid = "fe0851c0-eecd-5654-98d4-656369965a5c"
-version = "5.0.11+0"
+version = "5.0.12+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "NetworkOptions", "OpenSSL_jll", "Sockets"]
@@ -2599,18 +2655,20 @@ uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.6.0"
 
 [[deps.PrettyTables]]
-deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "REPL", "Reexport", "StringManipulation", "Tables"]
-git-tree-sha1 = "1b8aa19f229b1cea7fc93874a52e49db6a854450"
+deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "REPL", "Reexport", "StringManipulation", "StyledStrings", "Tables"]
+git-tree-sha1 = "99fd8f32ab6728ff205cddd24e2d9ea6cbb498d3"
 registries = "General"
 uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "3.4.8"
+version = "3.5.0"
 
     [deps.PrettyTables.extensions]
     PrettyTablesExcelExt = "XLSX"
     PrettyTablesTypstryExt = "Typstry"
+    PrettyTablesWriteDocxExt = "WriteDocx"
 
     [deps.PrettyTables.weakdeps]
     Typstry = "f0ed7684-a786-439e-b1e3-3b82803b501e"
+    WriteDocx = "d049ceea-54ee-41d7-a26f-ba29db3b6599"
     XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 
 [[deps.Printf]]
@@ -2741,10 +2799,10 @@ version = "0.1.2"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
-git-tree-sha1 = "e206cf4850fd7ac4255ffd2b98922f563e18ac53"
+git-tree-sha1 = "39e70e0ab5d7f89833a62ab7c79df15d4fc417c1"
 registries = "General"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.9.20"
+version = "1.9.22"
 weakdeps = ["ChainRulesCore", "Statistics"]
 
     [deps.StaticArrays.extensions]
@@ -2809,11 +2867,11 @@ uuid = "69024149-9ee7-55f6-a4c4-859efe599b68"
 version = "0.3.7"
 
 [[deps.StringManipulation]]
-deps = ["PrecompileTools"]
-git-tree-sha1 = "773065c6e0e903924a9d838259be74338422aef2"
+deps = ["PrecompileTools", "StyledStrings"]
+git-tree-sha1 = "9e3a02d73a8f0a9be04e677dbef758aab40f8bea"
 registries = "General"
 uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
-version = "0.5.0"
+version = "0.6.1"
 
 [[deps.StructTypes]]
 deps = ["Dates", "UUIDs"]
@@ -3167,10 +3225,10 @@ version = "1.1.7+0"
 
 [[deps.libaom_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "ef17c47d22224aaecc76e597ab21a072e025cf7b"
+git-tree-sha1 = "1210ba774d3427387d307bf1f416d699b7c39417"
 registries = "General"
 uuid = "a4ae2306-e953-59d6-aa16-d00cac43593b"
-version = "3.14.1+0"
+version = "3.15.1+0"
 
 [[deps.libass_jll]]
 deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "HarfBuzz_jll", "JLLWrappers", "Libdl", "Zlib_jll"]
@@ -3221,10 +3279,10 @@ version = "1.3.8+0"
 
 [[deps.mpif_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIABI_jll", "MPICH_jll", "MPIPreferences", "MPItrampoline_jll", "MicrosoftMPI_jll", "OpenMPI_jll", "TOML"]
-git-tree-sha1 = "a8083ee0737c243c8f40a4ba86a0956997facb73"
+git-tree-sha1 = "a06fcd368cfe6fe2c0eb7b63320d4d27ddcd010d"
 registries = "General"
 uuid = "9aeb927a-4695-514f-a259-621a69f20ec0"
-version = "0.1.7+0"
+version = "1.0.0+0"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
@@ -3296,6 +3354,7 @@ uuid = "23338594-aafe-5451-b93e-139f81909106"
 # ╟─626abc7c-87ef-4838-9f0a-294cf0a4be6a
 # ╟─6c60f9ca-ba04-41e2-9625-c9e10f1a853b
 # ╟─1d56075c-e28d-46c9-9a0a-210079172388
+# ╟─19578219-c6dd-4322-a2f4-44088ef640af
 # ╟─d18fb5c2-6e47-4a90-b3d1-90c7af4e2b16
 # ╟─e52c7a3b-8d19-4c60-a7f2-31b6ec9d5a08
 # ╟─f9a37c14-5b62-4e8d-96a0-2c41db73e65f
@@ -3307,6 +3366,7 @@ uuid = "23338594-aafe-5451-b93e-139f81909106"
 # ╟─e8c60922-5bbf-45b5-8311-18c8f8525623
 # ╟─73ba544c-616a-4db1-b91d-0b20a7b8924b
 # ╟─2f8baccc-19d1-44d6-b71f-0243fd8696ba
+# ╟─11eadcc1-68bf-4ca7-9603-ef46468b4779
 # ╟─dc4feb58-d2cf-4a97-aaed-7f4593fc9732
 # ╟─74063eb5-be06-466a-a2f1-e266c35295ea
 # ╟─607000ef-fb7f-4204-b543-3cb6bb75ed71
@@ -3318,7 +3378,11 @@ uuid = "23338594-aafe-5451-b93e-139f81909106"
 # ╠═69ae57b4-4e4c-44a2-aca7-d0fff89b9566
 # ╠═e50f8f52-a73f-4186-af5e-b4ca2c021142
 # ╠═9862c791-31e8-4d59-8610-a929d72ea9c3
+# ╟─6bd5ea51-54c4-46ba-8eb3-6427225e5249
+# ╠═ee3299e2-3367-4c68-a050-c26650a97c8c
 # ╟─e121f72b-fe6d-491a-ab03-ef92154c61ca
+# ╠═2c7e75ca-bd85-4cf7-b762-bb80afc9e465
+# ╠═142fc47a-5774-4a5c-a2ba-942524986e7c
 # ╟─b92d17a9-8481-458a-bc0a-efb7333cbc6e
 # ╟─9527686f-24e1-40bb-9a5d-22575aafec9b
 # ╟─cd6d807d-6238-44ce-9267-1614679f527a

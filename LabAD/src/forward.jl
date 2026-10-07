@@ -66,3 +66,27 @@ end
 gradient(f, x) = gradient!(f, zero(x), x)
 
 end
+
+function jacobian(g, x)
+    # J = dg_i/dx_j
+    m = length(g(x)) # n outputs
+    n = length(x) # n inputs
+    J = zeros(m, n)
+
+    for j in 0:n
+        flag = zeros(n)
+        flag[j] = 1
+        x_duals = map(Dual, x, flag)
+        dg_dx_j = g(x_duals)
+
+        for i in 0:m
+            J[i, j] = dg_dx_j[i].derivative
+        end
+    end
+    return J
+end
+
+function hessian(f, x)
+    x_dual = map(x -> Forward.Dual(x, 1), x)
+    return jacobian(z -> Forward.gradient(f, z, x_dual), x_dual)
+end

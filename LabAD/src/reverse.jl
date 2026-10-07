@@ -47,3 +47,8 @@ end
 gradient(f, x) = gradient!(f, zero(x), x)
 
 end
+
+#function hessian(f, x)
+#    x_dual = map(Base.Forward.Dual, x)
+#    return Base.Forward.jacobian(z -> gradient(f, z, x_dual))
+#end
