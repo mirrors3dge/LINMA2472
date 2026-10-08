@@ -56,65 +56,58 @@ function onehot(v, i)
     return z
 end
 
-# f must return a scalar output
+"""Only supports scalar valued functions."""
 function gradient(f, x, i::Integer)
     inputs = map(Dual, x, onehot(x, i))
     return f(inputs).derivative
 end
 
-# f must return a scalar output
+"""Only supports scalar valued functions."""
 function gradient!(f, g, x)
     return map!(g, eachindex(x)) do i
         gradient(f, x, i)
     end
 end
 
-# f must return a scalar output
+"""Only supports scalar valued functions."""
 gradient(f, x) = gradient!(f, zero(x), x)
 
-# --- jacobian and hessian --- #
-export gradient, jacobian, hessian, jacobian2, hvp2
-
+"""Only supports vector valued functions."""
 function forward_deriv(f, x, direction)
     inputs = map(Dual, x, direction)
     return map(d -> d.derivative, f(inputs))
 end
 
-function jacobian2(f, x, i::Integer)
-    return forward_deriv(f, x, onehot(x, i))
+# --- jacobian and hessian --- #
+# for vector valued functions
+export gradient, forward_deriv, jacobian, hessian, hessian_vec, hvp, hvp_vec
+
+"""Only supports vector valued functions."""
+function jacobian(f, x)
+    # J_ij = df_i/dx_j
+    J_ij = map(j -> forward_deriv(f, x, onehot(x, j)), eachindex(x))
+    return hcat(J_ij...) # format as matrix
 end
 
-# We don't know in advance the dimension of the output of `f`
-# so we cannot easily redirect to a `jacobian!`
-function jacobian2(f, x)
-    return reduce(hcat, map(i -> jacobian2(f, x, i), eachindex(x)))
-end
-
+"""Only supports scalar valued functions."""
 function hessian(f, x)
-    return jacobian2(z -> gradient(f, z), x)
+    return jacobian(z -> gradient(f, z), x)
+end
+
+"""Only supports vector valued functions."""
+function hessian_vec(f, x)
+    return jacobian(z -> jacobian(f, z), x)
 end
 
 # Hessian-vector product
-function hvp2(f, x, tx)
+"""Only supports scalar valued functions."""
+function hvp(f, x, tx)
     return forward_deriv(z -> gradient(f, z), x, tx)
 end
 
-# always work with arrays, even for scalars (arrays of length 1)
-function jacobian(f, x)
-    # J_ij = dg_i/dx_j
-    n::Int = length(f(x)) # n outputs
-    m::Int = length(x)    # m inputs
-    J = zeros(eltype(x), n, m)  # n outputs x m inputs
-
-    for j in 1:m # j = var index
-        inputs = map(Dual, x, onehot(x, j))
-        outputs = f(inputs)
-
-        for i in 1:n # i = output index
-            J[i, j] = outputs[i].derivative
-        end
-    end
-    return J
+"""Only supports vector valued functions."""
+function hvp_vec(f, x, tx)
+    return forward_deriv(z -> jacobian(f, z), x, tx)
 end
 
 end # module Forward

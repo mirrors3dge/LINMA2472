@@ -171,17 +171,22 @@ plot_moon(relu_softmax, w, X, y)
 #         function and then combine it with the existing gradient
 #         function to get the hessian.
 
-x = Float32[1, 2, 3, 4]
-
-function my_fn(x)
-    x, y, z, k = x
-    return x * x * y + y * z + k
+function my_fn_scalar(x)
+    x1, x2, x3, x4 = x
+    return x1 * x1 * x2 + x2 * x3 + x4
 end
 
-jac = Forward.jacobian(x -> [my_fn(x)], x)
-grad = Forward.gradient(my_fn, x)
-hess = Forward.hessian(my_fn, x)
+function my_fn_vec(x::AbstractVector)
+    x1, x2, x3, x4 = x
+    return [x1 * x1 * x2 + x2 * x3 + x4, 1 / x3]
+end
 
-println(typeof(jac)," ", jac)
-println(typeof(grad)," " , grad)
-println(typeof(hess)," ", hess)
+x = Float32[1, 2, 3, 4]
+
+grad = Forward.gradient(my_fn_scalar, x)
+jac = Forward.jacobian(my_fn_vec, x)
+hess = Forward.hessian(my_fn_scalar, x)
+
+println("grad ", typeof(grad), " ", size(grad), " ", grad)
+println("jac ", typeof(jac), " ", size(jac), " ", jac)
+println("hess ", typeof(hess), " ", size(hess), " ", hess)
