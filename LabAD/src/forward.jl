@@ -80,7 +80,7 @@ end
 
 # --- jacobian and hessian --- #
 # for vector valued functions
-export gradient, forward_deriv, jacobian, hessian, hessian_vec, hvp, hvp_vec
+export gradient, forward_deriv, jacobian, hessian, hessian_vec, hvp
 
 """Only supports vector valued functions."""
 function jacobian(f, x)
@@ -94,20 +94,10 @@ function hessian(f, x)
     return jacobian(z -> gradient(f, z), x)
 end
 
-"""Only supports vector valued functions."""
-function hessian_vec(f, x)
-    return jacobian(z -> jacobian(f, z), x)
-end
-
 # Hessian-vector product
 """Only supports scalar valued functions."""
 function hvp(f, x, tx)
     return forward_deriv(z -> gradient(f, z), x, tx)
-end
-
-"""Only supports vector valued functions."""
-function hvp_vec(f, x, tx)
-    return forward_deriv(z -> jacobian(f, z), x, tx)
 end
 
 end # module Forward
