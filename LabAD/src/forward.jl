@@ -1,15 +1,15 @@
 module Forward
 
-struct Dual
-    value::Union{Float64,Dual}
-    derivative::Union{Float64,Dual}
+struct Dual{T}
+    value::T
+    derivative::Union{T}
 end
-Dual(x::Number, y::Number) = Dual(Float64(x), Float64(y))
+Dual(x::Number, y::Number) = Dual{Float64}(Float64(x), Float64(y))
 
 Base.broadcastable(d::Dual) = Ref(d)
-Base.zero(::Dual) = Dual(0, 0)
-Base.zero(::Type{Dual}) = Dual(0, 0)
-Base.one(::Dual) = Dual(1, 0)
+Base.zero(::Dual{T}) where {T} = Dual{T}(zero(T), zero(T))
+Base.zero(::Type{Dual{T}}) where {T} = Dual{T}(zero(T), zero(T))
+Base.one(::Dual{T}) where {T} = Dual{T}(one(T), zero(T))
 # Addition and subtraction
 Base.:+(x::Dual, y::Dual) = Dual(x.value + y.value, x.derivative + y.derivative)
 Base.:+(x::Dual, y::Number) = Dual(x.value + y, x.derivative)

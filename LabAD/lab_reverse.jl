@@ -145,6 +145,19 @@ hess = Reverse.hessian(my_fn_scalar, x)
 println("jac: ", typeof(jac), " ", size(jac), " ", jac)
 println("hess: ", typeof(hess), " ", size(hess), " ", hess)
 
+# Simple benchmark between forward vs reverse Jacobian
+Forward.jacobian(my_fn_vec, x)
+Reverse.jacobian(my_fn_vec, x)
+num_trials = 1_000
+forward_time = @elapsed for _ in 1:num_trials
+    Forward.jacobian(my_fn_vec, x)
+end
+reverse_time = @elapsed for _ in 1:num_trials
+    Reverse.jacobian(my_fn_vec, x)
+end
+println("Jacobian time per call (ms): forward = ", 1e3 * forward_time / num_trials,
+    ", reverse = ", 1e3 * reverse_time / num_trials)
+
 # ## Exercise 5:
 
 # It's best to first focus on correctness but once everything is correct you

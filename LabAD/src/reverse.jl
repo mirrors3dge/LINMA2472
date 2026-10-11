@@ -16,14 +16,15 @@ CGE.metadata_rows(data::ReverseData) = [
 
 const RevNode{T} = CGE.Node{T,ReverseData{T}}
 const Node = RevNode{Float64}
-const DualNode = RevNode{Forward.Dual}
+const DualNode = RevNode{Forward.Dual{Float64}}
 
 function CGE.seed_metadata!(data::ReverseData, is_output::Bool)
     data.derivative = is_output ? one(data.derivative) : zero(data.derivative)
 end
 
 to_scalar(::Type{T}, value) where {T} = value isa T ? value : T(value)
-to_scalar(::Type{Forward.Dual}, value) = value isa Forward.Dual ? value : Forward.Dual(value, 0.0)
+to_scalar(::Type{Forward.Dual{S}}, value) where {S} =
+    value isa Forward.Dual ? value : Forward.Dual{S}(S(value), zero(S))
 
 function new_node(op, value, args::Vector{RevNode{T}}, local_jac) where {T}
     jac = map(local_jac) do coefficient
