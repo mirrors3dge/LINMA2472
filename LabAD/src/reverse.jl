@@ -1,48 +1,57 @@
 module Reverse
 
 import ComputationGraphExplorer as CGE
+import ..Forward
 
-mutable struct ReverseData
-    derivative::Float64
-    local_jac::Vector{Float64}
+mutable struct ReverseData{T}
+    derivative::T
+    local_jac::Vector{T}
 end
 
-CGE.metadata(::Type{ReverseData}, ::Float64) = ReverseData(0.0, Float64[])
+CGE.metadata(::Type{ReverseData{T}}, ::T) where {T} = ReverseData{T}(zero(T), T[])
 CGE.metadata_rows(data::ReverseData) = [
     "r" => data.derivative,
     "J" => data.local_jac,
 ]
 
-const Node = CGE.Node{Float64,ReverseData}
+const RevNode{T} = CGE.Node{T,ReverseData{T}}
+const Node = RevNode{Float64}
+const DualNode = RevNode{Forward.Dual}
 
 function CGE.seed_metadata!(data::ReverseData, is_output::Bool)
-    data.derivative = is_output ? 1.0 : 0.0
+    data.derivative = is_output ? one(data.derivative) : zero(data.derivative)
 end
 
-function new_node(op, value, args::Vector{Node}, local_jac)
-    return Node(op, args, Float64(value), ReverseData(0.0, Float64.(local_jac)))
+to_scalar(::Type{T}, value) where {T} = value isa T ? value : T(value)
+to_scalar(::Type{Forward.Dual}, value) = value isa Forward.Dual ? value : Forward.Dual(value, 0.0)
+
+function new_node(op, value, args::Vector{RevNode{T}}, local_jac) where {T}
+    jac = map(local_jac) do coefficient
+        to_scalar(T, coefficient)
+    end
+    return RevNode{T}(op, args, value, ReverseData{T}(zero(T), jac))
 end
 
-Base.zero(::Node) = Node(0.0)
-Base.:*(x::Node, y::Node) = new_node(:*, x.value * y.value, Node[x, y], [y.value, x.value])
-Base.:*(x::Node, y::Number) = new_node(:*, x.value * y, Node[x], [y])
-Base.:*(x::Number, y::Node) = new_node(:*, x * y.value, Node[y], [x])
-Base.:+(x::Node, y::Node) = new_node(:+, x.value + y.value, Node[x, y], [1.0, 1.0])
-Base.:+(x::Node, y::Number) = new_node(:+, x.value + y, Node[x], [1.0])
-Base.:+(x::Number, y::Node) = new_node(:+, x + y.value, Node[y], [1.0])
-Base.:-(x::Node, y::Node) = new_node(:-, x.value - y.value, Node[x, y], [1.0, -1.0])
-Base.:-(x::Node, y::Number) = new_node(:-, x.value - y, Node[x], [1.0])
-Base.:-(x::Number, y::Node) = new_node(:-, x - y.value, Node[y], [-1.0])
-Base.:-(x::Node) = new_node(:-, -x.value, Node[x], [-1.0])
-Base.:/(x::Node, y::Node) = new_node(:/, x.value / y.value, Node[x, y], [1 / y.value, -x.value / y.value^2])
-Base.:/(x::Node, y::Number) = new_node(:/, x.value / y, Node[x], [1 / y])
-Base.:/(x::Number, y::Node) = new_node(:/, x / y.value, Node[y], [-x / y.value^2])
-Base.:^(x::Node, n::Integer) = Base.power_by_squaring(x, n)
-Base.tanh(x::Node) = new_node(:tanh, tanh(x.value), Node[x], [1 - tanh(x.value)^2])
-Base.exp(x::Node) = new_node(:exp, exp(x.value), Node[x], [exp(x.value)])
-Base.log(x::Node) = new_node(:log, log(x.value), Node[x], [1 / x.value])
+Base.zero(::RevNode{T}) where {T} = RevNode{T}(zero(T))
+Base.:*(x::RevNode{T}, y::RevNode{T}) where {T} = new_node(:*, x.value * y.value, RevNode{T}[x, y], [y.value, x.value])
+Base.:*(x::RevNode{T}, y::Number) where {T} = new_node(:*, x.value * y, RevNode{T}[x], [y])
+Base.:*(x::Number, y::RevNode{T}) where {T} = new_node(:*, x * y.value, RevNode{T}[y], [x])
+Base.:+(x::RevNode{T}, y::RevNode{T}) where {T} = new_node(:+, x.value + y.value, RevNode{T}[x, y], [1, 1])
+Base.:+(x::RevNode{T}, y::Number) where {T} = new_node(:+, x.value + y, RevNode{T}[x], [1])
+Base.:+(x::Number, y::RevNode{T}) where {T} = new_node(:+, x + y.value, RevNode{T}[y], [1])
+Base.:-(x::RevNode{T}, y::RevNode{T}) where {T} = new_node(:-, x.value - y.value, RevNode{T}[x, y], [1, -1])
+Base.:-(x::RevNode{T}, y::Number) where {T} = new_node(:-, x.value - y, RevNode{T}[x], [1])
+Base.:-(x::Number, y::RevNode{T}) where {T} = new_node(:-, x - y.value, RevNode{T}[y], [-1])
+Base.:-(x::RevNode{T}) where {T} = new_node(:-, -x.value, RevNode{T}[x], [-1])
+Base.:/(x::RevNode{T}, y::RevNode{T}) where {T} = new_node(:/, x.value / y.value, RevNode{T}[x, y], [1 / y.value, -x.value / y.value^2])
+Base.:/(x::RevNode{T}, y::Number) where {T} = new_node(:/, x.value / y, RevNode{T}[x], [1 / y])
+Base.:/(x::Number, y::RevNode{T}) where {T} = new_node(:/, x / y.value, RevNode{T}[y], [-x / y.value^2])
+Base.:^(x::RevNode{T}, n::Integer) where {T} = Base.power_by_squaring(x, n)
+Base.tanh(x::RevNode{T}) where {T} = new_node(:tanh, tanh(x.value), RevNode{T}[x], [1 - tanh(x.value)^2])
+Base.exp(x::RevNode{T}) where {T} = new_node(:exp, exp(x.value), RevNode{T}[x], [exp(x.value)])
+Base.log(x::RevNode{T}) where {T} = new_node(:log, log(x.value), RevNode{T}[x], [1 / x.value])
 
-function CGE.pullback!(f::Node)
+function CGE.pullback!(f::RevNode{T}) where {T}
     for (parent, local_jac) in zip(f.args, f.metadata.local_jac)
         parent.metadata.derivative += f.metadata.derivative * local_jac
     end
@@ -80,11 +89,20 @@ function jacobian(f, x)
     return jac
 end
 
-#"""Only supports scalar valued functions."""
-#function hessian(f, x)
-#    inputs = map(Forward.Dual, x)
-#    return Base.Forward.jacobian(z -> gradient(f, z, x_dual))
-#end
+"""Only supports scalar valued functions."""
+function hessian(f, x)
+    hess = zeros(eltype(x), length(x), length(x))
+    for j in eachindex(x)
+        direction = zeros(eltype(x), length(x))
+        direction[j] = 1
+        inputs = map(Forward.Dual, x, direction)
+        nodes = map(DualNode, inputs)
+        output = f(nodes)
+        CGE.backward!(output)
+        hess[:, j] = map(node -> node.metadata.derivative.derivative, nodes)
+    end
+    return hess
+end
 
 end
 
