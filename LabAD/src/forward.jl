@@ -81,8 +81,7 @@ function forward_deriv(f, x, direction)
 end
 
 # --- jacobian and hessian --- #
-# for vector valued functions
-export gradient, forward_deriv, jacobian, hessian, hessian_vec, hvp
+export gradient, forward_deriv, jacobian, hessian, hvp
 
 """Only supports vector valued functions."""
 function jacobian(f, x)

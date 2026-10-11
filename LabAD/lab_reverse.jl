@@ -4,12 +4,13 @@
 
 using Revise # This will allow the changes you make to LabAD to take effect even after executing `using LabAD`.`
 using LabAD
-import LabAD.Forward.hessian
 import ComputationGraphExplorer as CGE
 
 x = rand(2)
 
+println("x = ", x)
 univariate(x) = x[1]^2 + x[1]
+println("univariate(x) = ", univariate(x))
 
 ∇f = @time Forward.gradient(univariate, x)
 
@@ -36,7 +37,7 @@ CGE.visualize(graph)
 function quad(x)
     I = eachindex(x)
     y = x - I
-    return sum(I .* y.^2)
+    return sum(I .* y .^ 2)
 end
 
 ∇f = @time Forward.gradient(quad, x)
@@ -126,7 +127,23 @@ norm.(∇f .- ∇r)
 #         a bit ambitious but try using reverse of at least one of
 #         them. This is called doing *forward-over-reverse*.
 
-hessian(L, x)
+function my_fn_scalar(x)
+    x1, x2, x3, x4 = x
+    return x1 * x1 * x2 + x2 * x3 + x4
+end
+
+function my_fn_vec(x::AbstractVector)
+    x1, x2, x3, x4 = x
+    return [x1 * x1 * x2 + x2 * x3 + x4, 1 / x3]
+end
+
+x = Float32[1, 2, 3, 4]
+
+jac = Reverse.jacobian(my_fn_vec, x)
+hess = Reverse.hessian(my_fn_scalar, x)
+
+println("jac: ", typeof(jac), " ", size(jac), " ", jac)
+println("hess: ", typeof(hess), " ", size(hess), " ", hess)
 
 # ## Exercise 5:
 
