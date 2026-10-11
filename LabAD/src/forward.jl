@@ -72,7 +72,9 @@ end
 """Only supports scalar valued functions."""
 gradient(f, x) = gradient!(f, zero(x), x)
 
-"""Only supports vector valued functions."""
+"""Jacobian-vector product `J(x) * direction`.
+
+Only supports vector valued functions."""
 function forward_deriv(f, x, direction)
     inputs = map(Dual, x, direction)
     return map(d -> d.derivative, f(inputs))
@@ -94,10 +96,11 @@ function hessian(f, x)
     return jacobian(z -> gradient(f, z), x)
 end
 
-# Hessian-vector product
-"""Only supports scalar valued functions."""
-function hvp(f, x, tx)
-    return forward_deriv(z -> gradient(f, z), x, tx)
+"""Hessian-vector product.
+
+Only supports scalar valued functions."""
+function hvp(f, x, direction)
+    return forward_deriv(z -> gradient(f, z), x, direction)
 end
 
 end # module Forward
