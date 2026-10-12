@@ -1,15 +1,19 @@
 module Forward
 
+const FloatType = Float64
+
 struct Dual{T}
     value::T
     derivative::Union{T}
 end
-Dual(x::Number, y::Number) = Dual{Float64}(Float64(x), Float64(y))
+Dual(x::Number, y::Number) = Dual{FloatType}(FloatType(x), FloatType(y))
+Base.convert(::Type{Dual{T}}, x::Number) where {T} = Dual{T}(T(x), zero(T))
 
 Base.broadcastable(d::Dual) = Ref(d)
 Base.zero(::Dual{T}) where {T} = Dual{T}(zero(T), zero(T))
 Base.zero(::Type{Dual{T}}) where {T} = Dual{T}(zero(T), zero(T))
 Base.one(::Dual{T}) where {T} = Dual{T}(one(T), zero(T))
+Base.one(::Type{Dual{T}}) where {T} = Dual{T}(one(T), zero(T))
 # Addition and subtraction
 Base.:+(x::Dual, y::Dual) = Dual(x.value + y.value, x.derivative + y.derivative)
 Base.:+(x::Dual, y::Number) = Dual(x.value + y, x.derivative)
