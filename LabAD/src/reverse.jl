@@ -24,19 +24,15 @@ function CGE.seed_metadata!(data::ReverseData, is_output::Bool)
     data.derivative = is_output ? one(data.derivative) : zero(data.derivative)
 end
 
+# new node (fast & general path)
 function new_node(op, value::T, args::Vector{RevNode{T}}, local_jac::Vector{T}) where {T}
-    data = ReverseData{T}(zero(T), local_jac)
+    data = ReverseData{T}(zero(value), local_jac)
     return RevNode{T}(op, args, value, data)
 end
-
-function new_node(op, value, args::Vector{RevNode{T}}, local_jac::Vector{T}) where {T}
-    data = ReverseData{T}(zero(T), local_jac)
-    return RevNode{T}(op, args, convert(T, value), data)
-end
-
-function new_node(op, value::T, args::Vector{RevNode{T}}, local_jac) where {T}
-    jac = convert.(T, local_jac)
-    data = ReverseData{T}(zero(T), jac)
+function new_node(op, value, args::Vector{RevNode{T}}, local_jac) where {T}
+    value = convert(T, value)
+    local_jac = convert.(T, local_jac)
+    data = ReverseData{T}(zero(value), local_jac)
     return RevNode{T}(op, args, value, data)
 end
 
