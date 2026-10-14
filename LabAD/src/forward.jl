@@ -4,7 +4,7 @@ const FloatType = Float64
 
 struct Dual{T}
     value::T
-    derivative::Union{T}
+    derivative::T
 end
 Dual(x::Number, y::Number) = Dual{FloatType}(FloatType(x), FloatType(y))
 Base.convert(::Type{Dual{T}}, x::Number) where {T} = Dual{T}(T(x), zero(T))
@@ -76,9 +76,11 @@ end
 """Only supports scalar valued functions."""
 gradient(f, x) = gradient!(f, zero(x), x)
 
-"""Jacobian-vector product `J(x) * direction`.
+"""
+Jacobian-vector product `J(x) * direction`.
 
-Only supports vector valued functions."""
+Only supports vector valued functions.
+"""
 function forward_deriv(f, x, direction)
     inputs = map(Dual, x, direction)
     return map(d -> d.derivative, f(inputs))
@@ -99,9 +101,11 @@ function hessian(f, x)
     return jacobian(z -> gradient(f, z), x)
 end
 
-"""Hessian-vector product.
+"""
+Hessian-vector product.
 
-Only supports scalar valued functions."""
+Only supports scalar valued functions.
+"""
 function hvp(f, x, direction)
     return forward_deriv(z -> gradient(f, z), x, direction)
 end
