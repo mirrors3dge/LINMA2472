@@ -3,7 +3,7 @@ module Reverse
 import ComputationGraphExplorer as CGE
 import ..Forward
 
-const FloatType = Float64
+const FloatType = Forward.FloatType
 
 mutable struct ReverseData{T}
     derivative::T
@@ -77,7 +77,7 @@ end
 
 """Only supports scalar valued functions."""
 function gradient!(f, g, x)
-    inputs = map(RevNode{FloatType}, x)
+    inputs = map(RevNode{eltype(x)}, x)
     root = f(inputs)
     CGE.backward!(root)
     return map!(node -> node.metadata.derivative, g, inputs)
@@ -87,12 +87,12 @@ end
 gradient(f, x) = gradient!(f, zero(x), x)
 
 # --- jacobian and hessian --- #
-export gradient, jacobian, hessian
+export gradient, jacobian, hessian, hessian_rof, hessian_for, hessian_ror
 
 """Only supports vector valued functions."""
 function jacobian(f, x)
     # J_ij = df_i/dx_j
-    inputs = map(RevNode{FloatType}, x)
+    inputs = map(RevNode{eltype(x)}, x)
     outputs = f(inputs)
     jac = zeros(eltype(x), length(outputs), length(x))
     for (i, output) in enumerate(outputs)
@@ -107,7 +107,11 @@ function jacobian(f, x)
     return jac
 end
 
-"""Only supports scalar valued functions."""
+"""
+Using forward-over-reverse (prefer using this over `hessian_for`).
+
+Only supports scalar valued functions.
+"""
 function hessian(f, x)
     hess = zeros(eltype(x), length(x), length(x))
     for j in eachindex(x)
@@ -122,6 +126,31 @@ function hessian(f, x)
     return hess
 end
 
+"""
+Using reverse-over-forward.
+
+Only supports scalar valued functions.
+"""
+function hessian_rof(f, x)
+    return jacobian(z -> Forward.gradient(f, z), x)
 end
 
+"""
+Using forward-over-reverse.
 
+Only supports scalar valued functions.
+"""
+function hessian_for(f, x)
+    return Forward.jacobian(z -> gradient(f, z), x)
+end
+
+"""
+Using reverse-over-reverse.
+
+Only supports scalar valued functions.
+"""
+function hessian_ror(f, x)
+    return jacobian(z -> gradient(f, z), x)
+end
+
+end

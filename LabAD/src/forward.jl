@@ -96,13 +96,17 @@ function jacobian(f, x)
     return hcat(J_ij...) # format as matrix
 end
 
-"""Only supports scalar valued functions."""
+"""
+Using forward-over-forward (slooow).
+
+Only supports scalar valued functions.
+"""
 function hessian(f, x)
     return jacobian(z -> gradient(f, z), x)
 end
 
 """
-Hessian-vector product.
+Hessian-vector product using forward-over-forward (slooow).
 
 Only supports scalar valued functions.
 """
